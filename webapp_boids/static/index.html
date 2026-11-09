@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boids Simulator | U55C Accelerator Lab</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/app.css?v=20260304a" />
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-main">
+      <div class="brand-wrap">
+        <div class="brand">U55C Boids Bird-Flight Simulator</div>
+        <div class="subtitle">CPU Flocking Preview, FPGA Runtime Control, Trace Comparison, and Architecture Map</div>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="lab">Project Lab</button>
+    <button class="tab" data-tab="fpga">FPGA Runtime</button>
+    <button class="tab" data-tab="docs">Project Docs</button>
+    <button class="tab" data-tab="diagram">Block Diagram</button>
+  </nav>
+
+  <main>
+    <section id="tab-lab" class="tab-panel active">
+      <div class="grid">
+        <article class="card">
+          <h2>CPU + FPGA Flock Preview</h2>
+          <div class="controls">
+            <label>Boids
+              <input id="boids" type="number" min="1" max="50000" value="512" />
+            </label>
+            <label>Compare Steps
+              <input id="steps" type="number" min="1" max="50000" value="50" />
+            </label>
+            <label>Seed
+              <input id="seed" type="number" value="1" />
+            </label>
+          </div>
+          <div class="flock-control-card">
+            <h3>Flock Control</h3>
+            <p class="hint">Adjust flocking behavior live. CPU/FPGA previews and generated traces use these values.</p>
+            <div class="flock-control-grid">
+              <label class="slider-control">Protected Range
+                <div class="slider-row">
+                  <input id="flock-protected-range" type="range" min="1" max="80" step="1" value="8" />
+                  <span id="flock-protected-range-val" class="slider-value">8</span>
+                </div>
+              </label>
+              <label class="slider-control">Visual Range
+                <div class="slider-row">
+                  <input id="flock-visual-range" type="range" min="8" max="200" step="1" value="75" />
+                  <span id="flock-visual-range-val" class="slider-value">75</span>
+                </div>
+              </label>
+              <label class="slider-control">Centering Factor (Reciprocal)
+                <div class="slider-row">
+                  <input id="flock-centering-recip" type="range" min="100" max="20000" step="10" value="2000" />
+                  <span id="flock-centering-recip-val" class="slider-value">2000</span>
+                </div>
+              </label>
+              <label class="slider-control">Avoid Factor (Reciprocal)
+                <div class="slider-row">
+                  <input id="flock-avoid-recip" type="range" min="1" max="200" step="1" value="20" />
+                  <span id="flock-avoid-recip-val" class="slider-value">20</span>
+                </div>
+              </label>
+              <label class="slider-control">Matching Factor (Reciprocal)
+                <div class="slider-row">
+                  <input id="flock-matching-recip" type="range" min="1" max="200" step="1" value="20" />
+                  <span id="flock-matching-recip-val" class="slider-value">20</span>
+                </div>
+              </label>
+            </div>
+          </div>
+          <div class="actions-row">
+            <button id="simulate-btn" class="btn primary">Pause CPU Flock</button>
+            <button id="reset-btn" class="btn">Reset Flock</button>
+            <button id="compare-btn" class="btn accent">Compare CPU vs FPGA</button>
+            <button id="trace-btn" class="btn warning">Generate CPU vs FPGA Trace</button>
+          </div>
+          <p id="sim-meta" class="meta">Running.</p>
+          <p id="compare-meta" class="meta">Ready to compare.</p>
+          <div class="trace-layout">
+            <div class="trace-col">
+              <h3>CPU Flock (Behavior Model)</h3>
+              <canvas id="boids-canvas" width="900" height="520"></canvas>
+            </div>
+            <div class="trace-col">
+              <h3>FPGA Flock (Kernel Model)</h3>
+              <canvas id="boids-fpga-canvas" width="900" height="520"></canvas>
+            </div>
+          </div>
+          <p id="fpga-flock-meta" class="meta">FPGA model running.</p>
+          <h3>Realtime Compare Summary</h3>
+          <p class="hint">Both previews run at the same time. CPU uses flocking rules; FPGA preview uses the kernel-style bounded update model.</p>
+          <pre id="runtime-summary" class="output small">Run compare and trace to populate speedup and divergence metrics.</pre>
+          <div class="trace-layout">
+            <div class="trace-col">
+              <h3>CPU Trace (Flocking Model)</h3>
+              <canvas id="cpu-trace-canvas" width="430" height="250"></canvas>
+            </div>
+            <div class="trace-col">
+              <h3>FPGA Trace (Kernel Dataflow Model)</h3>
+              <canvas id="fpga-trace-canvas" width="430" height="250"></canvas>
+            </div>
+          </div>
+          <p id="trace-meta" class="meta">Trace not generated yet.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-fpga" class="tab-panel">
+      <div class="grid two-col">
+        <article class="card">
+          <h2>FPGA Control + Benchmark</h2>
+          <div class="controls">
+            <label>Mode
+              <select id="bench-mode">
+                <option value="dry-run">dry-run</option>
+                <option value="hw" selected>hw</option>
+              </select>
+            </label>
+            <label>Elements
+              <input id="elements" type="number" min="1" value="16384" />
+            </label>
+            <label>Iterations
+              <input id="iterations" type="number" min="1" max="50000" value="1" />
+            </label>
+            <label>Device
+              <input id="device" type="text" value="0" />
+            </label>
+            <label>Kernel
+              <input id="kernel" type="text" value="boids_step" />
+            </label>
+          </div>
+          <div class="controls stack">
+            <label>XCLBIN Path
+              <input id="xclbin" type="text" placeholder="From project.env if blank" />
+            </label>
+          </div>
+          <div class="actions-row">
+            <button id="status-btn" class="btn">FPGA Status</button>
+            <button id="program-btn" class="btn warning">Program FPGA</button>
+            <button id="bench-btn" class="btn primary">Run Benchmark</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Runtime Output</h2>
+          <p class="hint">Command lines, benchmark summaries, and diagnostics appear here.</p>
+          <pre id="runtime-log" class="output"></pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-docs" class="tab-panel">
+      <div class="grid two-col docs-grid">
+        <article class="card docs-index-card">
+          <h2>Documentation Index</h2>
+          <label>Document
+            <select id="docs-select"></select>
+          </label>
+          <p class="hint">Rendered HTML documentation for this project.</p>
+          <div id="docs-meta" class="hint"></div>
+          <h3>Table of Contents</h3>
+          <div id="docs-toc" class="docs-toc"></div>
+        </article>
+
+        <article class="card docs-viewer-card">
+          <h2>Document Viewer</h2>
+          <div id="docs-render" class="docs-render"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-diagram" class="tab-panel">
+      <div class="grid two-col diagram-grid">
+        <article class="card">
+          <h2>Interactive Architecture Map</h2>
+          <p class="hint">Click a block for details. Double-click blocks with subdiagrams to drill down.</p>
+          <div class="diagram-toolbar">
+            <button id="diagram-back-btn" class="btn" type="button">Back</button>
+            <button id="diagram-zoom-out-btn" class="btn" type="button">-</button>
+            <button id="diagram-zoom-in-btn" class="btn" type="button">+</button>
+            <button id="diagram-reset-btn" class="btn" type="button">Reset View</button>
+            <span id="diagram-breadcrumb" class="diagram-breadcrumb"></span>
+            <span id="diagram-zoom-readout" class="diagram-zoom-readout">100%</span>
+          </div>
+          <div id="diagram-wrap" class="diagram-wrap">
+            <svg id="diagram-svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Boids architecture diagram"></svg>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Block Details</h2>
+          <p id="block-details" class="block-details">Select a block to inspect implementation details.</p>
+          <h3>Flow Notes</h3>
+          <div id="flow-notes" class="flow-notes"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>window.PROJECT_UI_CONFIG = { themeKey: 'u55c_boids_theme' };</script>
+  <script src="/static/common_ui.js?v=20260304a"></script>
+  <script src="/static/app.js?v=20260304a"></script>
+</body>
+</html>
